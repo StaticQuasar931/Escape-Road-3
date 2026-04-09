@@ -25,20 +25,37 @@
   </div>
 
   <script>
-    window.firebaseLogEvent = window.firebaseLogEvent || function() {};
-    window.firebaseLogEventParameter = window.firebaseLogEventParameter || function() {};
-    window.firebaseSetUserProperties = window.firebaseSetUserProperties || function() {};
-    window.gmEvent = window.gmEvent || function() {};
-    window.gmStartGame = window.gmStartGame || function(callbackFunction) {
+    const signedDomainToken = "eyJzaWduZWQiOiJJaHQ2XC9qdTRUWk15dTljNUhNbWNmekM2QWFmdXFIbGlqOFNcL1ZNNGJxOFVERXZ2czBwc3gwZUZQNEdWSkVWNmVFU2FMaGV1UERNMnEwOVVhUFRLODFJbVpVYnBpTndMXC9wNENcL2R2RWRkanlQK1RyUFFqazNLOUxOM0ZNRDluN0hSXC9ZblAxRmJYTkxoOG0zY3ZLT1JjaWdyXC9Na1JJQnV4SndQaWlvTlFMTVVPbkIzUmZUUkV1czBXbThJK3l4WEdzWUttSVhrT1lGT2hMXC8xb29NNG1hYWswMHZCaFwvZ2J1T09DRDBmZE82K2k3WVFuQUpvQUlBVTNtVXZUc0g4bWN3XC9qUmtTc3E5a2hWdktWVStnem4rZndveVpKWDFWTE00alwvUzZWdVF5SGJoSWEzM0d6U2hjUDZYQXpUUTBIOWpsc2pzNU83aEx4alVkUlcrSDFsZW9RPT0iLCJhcCI6InllcyIsImhuIjoiZ2FtZWEuYXpnYW1lLmlvIiwiZG9tYWluIjoiYXpnYW1lLmlvIiwicyI6InllcyIsInN0eXBlIjoyfQ==";
+
+    try {
+      localStorage.setItem("gmsdksigndomain", signedDomainToken);
+    } catch (error) {}
+
+    function firebaseLogEvent() {}
+    function firebaseLogEventParameter() {}
+    function firebaseSetUserProperties() {}
+    function gmEvent() {}
+    function gmStartGame(callbackFunction) {
       if (typeof callbackFunction === "function") {
         callbackFunction();
       }
-    };
-    window.gmStartAds = window.gmStartAds || function(callbackFunction) {
+    }
+    function gmStartAds(callbackFunction) {
       if (typeof callbackFunction === "function") {
         callbackFunction();
       }
-    };
+    }
+    function SetSDKType() {}
+
+    window.firebaseLogEvent = window.firebaseLogEvent || firebaseLogEvent;
+    window.firebaseLogEventParameter = window.firebaseLogEventParameter || firebaseLogEventParameter;
+    window.firebaseSetUserProperties = window.firebaseSetUserProperties || firebaseSetUserProperties;
+    window.gmEvent = window.gmEvent || gmEvent;
+    window.gmStartGame = window.gmStartGame || gmStartGame;
+    window.gmStartAds = window.gmStartAds || gmStartAds;
+    window.SetSDKType = window.SetSDKType || SetSDKType;
+    window.GMSOFT_SDKTYPE = "gm";
+
     window.GMGameSDK = window.GMGameSDK || {
       init: function() {
         return {
@@ -50,14 +67,14 @@
       trackEvent: function() {},
       trackEventParams: function() {}
     };
+
     window.GMSDK = window.GMSDK || {
-      SetSDKType: function() {}
+      SetSDKType: SetSDKType
     };
-    window.SetSDKType = window.SetSDKType || function() {};
+
     window.GMAnalytics = window.GMAnalytics || {
       LogEvent: function() {}
     };
-    window.GMSOFT_SDKTYPE = "gm";
 
     const buildUrl = "Build";
     const productVersion = "26040702";
@@ -125,8 +142,11 @@
       });
     }
 
-    function requestFullscreen() {
+    function requestFullscreen(event) {
       if (document.fullscreenElement) {
+        return;
+      }
+      if (event && event.type === "pointerdown" && event.button !== 0) {
         return;
       }
       if (container.requestFullscreen) {
@@ -149,9 +169,9 @@
     }
 
     function installInteractionHandlers() {
-      const activate = function() {
+      const activate = function(event) {
         unlockAudio();
-        requestFullscreen();
+        requestFullscreen(event);
       };
       window.addEventListener("pointerdown", activate, { passive: true });
       window.addEventListener("keydown", activate, { passive: true });
@@ -177,7 +197,6 @@
           loadingBar.style.display = "none";
           canvas.focus();
           installInteractionHandlers();
-          requestFullscreen();
         }).catch(function(message) {
           setFatalError(typeof message === "string" ? message : "Unity failed to start. Check the browser console for details.");
         });
