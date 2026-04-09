@@ -1,74 +1,108 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en-us">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Escape Road 3</title>
-  <meta name="description" content="Play Escape Road 3 in your browser.">
+  <meta name="description" content="Escape Road 3 WebGL build">
   <link rel="icon" href="favicon.ico">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="shell">
-    <section class="hero">
-      <p class="eyebrow">Browser Build</p>
-      <h1>Escape Road 3</h1>
-      <p class="summary">A cleaned-up local launcher for the Unity WebGL build, using your current root Build and StreamingAssets folders.</p>
-    </section>
-
-    <section class="player-card">
-      <div id="loading-panel" class="loading-panel">
-        <div class="spinner" aria-hidden="true"></div>
-        <div class="loading-copy">
-          <p class="loading-label">Loading</p>
-          <p class="loading-text" id="loading-text">Preparing game files...</p>
-        </div>
-        <div class="progress-track" aria-hidden="true">
-          <div class="progress-fill" id="progress-fill"></div>
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="unity-loading-bar">
+      <div class="loading-panel">
+        <div class="loading-title">Escape Road 3</div>
+        <div class="loading-subtitle" id="loading-text">Loading...</div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
         </div>
       </div>
-
-      <div id="error-panel" class="status-card error" hidden></div>
-
-      <div id="unity-container" class="unity-shell" hidden>
-        <canvas id="unity-canvas" width="1280" height="720" tabindex="-1"></canvas>
-      </div>
-    </section>
-  </main>
+    </div>
+    <div id="unity-warning" hidden></div>
+    <div id="unity-error" hidden></div>
+  </div>
 
   <script>
-    const buildBase = "Build";
-    const version = "26040702";
-    const loaderUrl = buildBase + "/escape-road-3-v" + version + ".loader.js";
+    window.firebaseLogEvent = window.firebaseLogEvent || function() {};
+    window.firebaseLogEventParameter = window.firebaseLogEventParameter || function() {};
+    window.firebaseSetUserProperties = window.firebaseSetUserProperties || function() {};
+    window.gmEvent = window.gmEvent || function() {};
+    window.gmStartGame = window.gmStartGame || function(callbackFunction) {
+      if (typeof callbackFunction === "function") {
+        callbackFunction();
+      }
+    };
+    window.gmStartAds = window.gmStartAds || function(callbackFunction) {
+      if (typeof callbackFunction === "function") {
+        callbackFunction();
+      }
+    };
+    window.GMGameSDK = window.GMGameSDK || {
+      init: function() {
+        return {
+          setVersion: function() {
+            return this;
+          }
+        };
+      },
+      trackEvent: function() {},
+      trackEventParams: function() {}
+    };
+    window.GMSDK = window.GMSDK || {
+      SetSDKType: function() {}
+    };
+    window.SetSDKType = window.SetSDKType || function() {};
+    window.GMAnalytics = window.GMAnalytics || {
+      LogEvent: function() {}
+    };
+    window.GMSOFT_SDKTYPE = "gm";
+
+    const buildUrl = "Build";
+    const productVersion = "26040702";
+    const loaderUrl = buildUrl + "/escape-road-3-v" + productVersion + ".loader.js";
     const config = {
-      dataUrl: buildBase + "/escape-road-3-v" + version + ".data.unityweb",
-      frameworkUrl: buildBase + "/escape-road-3-v" + version + ".framework.js.unityweb",
-      codeUrl: buildBase + "/escape-road-3-v" + version + ".wasm.unityweb",
+      dataUrl: buildUrl + "/escape-road-3-v" + productVersion + ".data.unityweb",
+      frameworkUrl: buildUrl + "/escape-road-3-v" + productVersion + ".framework.js.unityweb",
+      codeUrl: buildUrl + "/escape-road-3-v" + productVersion + ".wasm.unityweb",
       streamingAssetsUrl: "StreamingAssets",
       companyName: "Escape Road 3",
       productName: "Escape Road 3",
-      productVersion: version
+      productVersion: productVersion,
+      autoSyncPersistentDataPath: true,
+      showBanner: function(message, type) {
+        const warning = document.getElementById("unity-warning");
+        warning.hidden = false;
+        warning.textContent = message;
+        warning.className = type === "error" ? "unity-banner error" : "unity-banner warning";
+        if (type !== "error") {
+          setTimeout(function() {
+            warning.hidden = true;
+            warning.textContent = "";
+          }, 5000);
+        }
+      }
     };
 
     const requiredFiles = [
       loaderUrl,
       config.dataUrl,
       config.frameworkUrl,
-      config.codeUrl,
-      config.streamingAssetsUrl + "/UnityServicesProjectConfiguration.json"
+      config.codeUrl
     ];
 
-    const progressFill = document.getElementById("progress-fill");
-    const loadingText = document.getElementById("loading-text");
-    const loadingPanel = document.getElementById("loading-panel");
-    const unityContainer = document.getElementById("unity-container");
+    const container = document.getElementById("unity-container");
     const canvas = document.getElementById("unity-canvas");
-    const errorPanel = document.getElementById("error-panel");
+    const loadingBar = document.getElementById("unity-loading-bar");
+    const progressBarFull = document.getElementById("unity-progress-bar-full");
+    const loadingText = document.getElementById("loading-text");
+    const errorPanel = document.getElementById("unity-error");
 
-    function setError(message) {
+    function setFatalError(message) {
       errorPanel.hidden = false;
       errorPanel.textContent = message;
-      loadingText.textContent = "Unable to start the game.";
+      errorPanel.className = "unity-banner error fatal";
     }
 
     async function fileExists(path) {
@@ -84,7 +118,6 @@
       const checks = await Promise.all(requiredFiles.map(async function(path) {
         return { path: path, exists: await fileExists(path) };
       }));
-
       return checks.filter(function(entry) {
         return !entry.exists;
       }).map(function(entry) {
@@ -92,10 +125,43 @@
       });
     }
 
+    function requestFullscreen() {
+      if (document.fullscreenElement) {
+        return;
+      }
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(function() {});
+      }
+    }
+
+    function unlockAudio() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) {
+        return;
+      }
+      try {
+        const context = window.__escapeRoadAudioContext || new AudioContextClass();
+        window.__escapeRoadAudioContext = context;
+        if (context.state === "suspended") {
+          context.resume().catch(function() {});
+        }
+      } catch (error) {}
+    }
+
+    function installInteractionHandlers() {
+      const activate = function() {
+        unlockAudio();
+        requestFullscreen();
+      };
+      window.addEventListener("pointerdown", activate, { passive: true });
+      window.addEventListener("keydown", activate, { passive: true });
+      window.addEventListener("touchstart", activate, { passive: true });
+    }
+
     async function bootGame() {
       const missing = await verifyFiles();
       if (missing.length) {
-        setError("Missing required file" + (missing.length > 1 ? "s" : "") + ": " + missing.join(", "));
+        setFatalError("Missing required file" + (missing.length > 1 ? "s" : "") + ": " + missing.join(", "));
         return;
       }
 
@@ -104,26 +170,26 @@
       script.onload = function() {
         createUnityInstance(canvas, config, function(progress) {
           const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
-          progressFill.style.width = percent + "%";
-          loadingText.textContent = percent >= 100 ? "Starting game..." : "Downloading game files... " + percent + "%";
-        }).then(function() {
-          loadingPanel.hidden = true;
-          unityContainer.hidden = false;
-          progressFill.style.width = "100%";
-          loadingText.textContent = "Game ready";
-          window.focus();
-        }).catch(function(error) {
-          setError(typeof error === "string" ? error : "Unity failed to start. Check the browser console for details.");
+          progressBarFull.style.width = percent + "%";
+          loadingText.textContent = percent >= 100 ? "Starting game..." : "Loading... " + percent + "%";
+        }).then(function(unityInstance) {
+          window.unityInstance = unityInstance;
+          loadingBar.style.display = "none";
+          canvas.focus();
+          installInteractionHandlers();
+          requestFullscreen();
+        }).catch(function(message) {
+          setFatalError(typeof message === "string" ? message : "Unity failed to start. Check the browser console for details.");
         });
       };
       script.onerror = function() {
-        setError("The Unity loader script could not be loaded.");
+        setFatalError("The Unity loader script could not be loaded.");
       };
       document.body.appendChild(script);
     }
 
     if (location.protocol === "file:") {
-      setError("This build must be served from a local web server. Opening index.html directly with file:// will not work for Unity WebGL.");
+      setFatalError("This build must be served from a local web server. Opening index.html directly with file:// will not work for Unity WebGL.");
     } else {
       bootGame();
     }
