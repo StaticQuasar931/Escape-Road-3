@@ -142,6 +142,33 @@
       });
     }
 
+    function removeLockOverlay() {
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+      let node;
+      while ((node = walker.nextNode())) {
+        const text = (node.textContent || "").trim();
+        if (!text) {
+          continue;
+        }
+        if (text === "Escape Road 3 is locked." || text === "Escape Road 3 is locked") {
+          node.style.display = "none";
+          node.setAttribute("aria-hidden", "true");
+        }
+      }
+    }
+
+    function observeLockOverlay() {
+      removeLockOverlay();
+      const observer = new MutationObserver(function() {
+        removeLockOverlay();
+      });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+    }
+
     function requestFullscreen(event) {
       if (document.fullscreenElement) {
         return;
@@ -210,8 +237,11 @@
     if (location.protocol === "file:") {
       setFatalError("This build must be served from a local web server. Opening index.html directly with file:// will not work for Unity WebGL.");
     } else {
+      observeLockOverlay();
       bootGame();
     }
   </script>
 </body>
 </html>
+
+
