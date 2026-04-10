@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en-us">
 <head>
   <meta charset="utf-8">
@@ -32,6 +32,69 @@
     const signedDomainToken = "eyJzaWduZWQiOiJJaHQ2XC9qdTRUWk15dTljNUhNbWNmekM2QWFmdXFIbGlqOFNcL1ZNNGJxOFVERXZ2czBwc3gwZUZQNEdWSkVWNmVFU2FMaGV1UERNMnEwOVVhUFRLODFJbVpVYnBpTndMXC9wNENcL2R2RWRkanlQK1RyUFFqazNLOUxOM0ZNRDluN0hSXC9ZblAxRmJYTkxoOG0zY3ZLT1JjaWdyXC9Na1JJQnV4SndQaWlvTlFMTVVPbkIzUmZUUkV1czBXbThJK3l4WEdzWUttSVhrT1lGT2hMXC8xb29NNG1hYWswMHZCaFwvZ2J1T09DRDBmZE82K2k3WVFuQUpvQUlBVTNtVXZUc0g4bWN3XC9qUmtTc3E5a2hWdktWVStnem4rZndveVpKWDFWTE00alwvUzZWdVF5SGJoSWEzM0d6U2hjUDZYQXpUUTBIOWpsc2pzNU83aEx4alVkUlcrSDFsZW9RPT0iLCJhcCI6InllcyIsImhuIjoiZ2FtZWEuYXpnYW1lLmlvIiwiZG9tYWluIjoiYXpnYW1lLmlvIiwicyI6InllcyIsInN0eXBlIjoyfQ==";
     const gamesdkUrlPattern = /api\.cdnwave\.com\/sdkdom\/gamesdk/i;
 
+    function encodeBase64(value) {
+      return btoa(unescape(encodeURIComponent(value)));
+    }
+
+    function decodeBase64Json(value) {
+      try {
+        return JSON.parse(decodeURIComponent(escape(atob(value))));
+      } catch (error) {
+        return null;
+      }
+    }
+
+    const signedDomainData = decodeBase64Json(signedDomainToken) || {};
+    const verifiedSignature = signedDomainData.signed || "";
+    const allowedHosts = [
+      location.hostname,
+      "staticquasar931.github.io",
+      "gamea.azgame.io",
+      "games.azgame.io",
+      "azgame.io"
+    ];
+
+    const unityGameInfoObject = {
+      allowPlay: true,
+      allow_play: true,
+      locked: false,
+      block: false,
+      blocked: false,
+      hosted: true,
+      sdkType: "gm",
+      sdk_type: "gm",
+      gameId: "escape-road-3",
+      gameName: "Escape Road 3",
+      gdGameKey: "escape-road-3-az",
+      gd_game_key: "escape-road-3-az",
+      moreGamesUrl: "",
+      more_games_url: "",
+      promotion: [],
+      promotions: [],
+      veryfiedDomainData: {
+        whiteListDomain: allowedHosts,
+        veryfiedSignature: verifiedSignature,
+        domain: location.hostname,
+        host: location.hostname
+      },
+      whiteListDomain: allowedHosts,
+      veryfiedSignature: verifiedSignature,
+      domain: location.hostname,
+      host: location.hostname
+    };
+
+    const unityAdInfoObject = {
+      adsEnabled: false,
+      rewardedEnabled: false,
+      interstitialEnabled: false,
+      bannerEnabled: false,
+      adTag: "",
+      placements: []
+    };
+
+    const unityGameInfoParam = encodeBase64(JSON.stringify(unityGameInfoObject));
+    const unityAdInfoParam = encodeBase64(JSON.stringify(unityAdInfoObject));
+
     const unlockedGameInfoResponse = {
       success: true,
       status: "success",
@@ -42,6 +105,7 @@
       sdkVersion: "latest",
       allow_play: true,
       allow: true,
+      allowPlay: true,
       block: false,
       blocked: false,
       locked: false,
@@ -53,9 +117,9 @@
       gd_game_key: "escape-road-3-az",
       more_games_url: "",
       domains: [],
-      hosts: [location.hostname],
+      hosts: allowedHosts,
       allowedHost: location.hostname,
-      allowedHosts: [location.hostname],
+      allowedHosts: allowedHosts,
       sitelockVersion: 2,
       allowLocalHost: true,
       allowCollectionPI: false,
@@ -63,29 +127,17 @@
       title: "Escape Road 3",
       messageStr: "ok",
       errorReason: "",
-      config: {
-        allow_play: true,
-        block: false,
-        blocked: false,
-        locked: false,
-        domains: [],
-        hosts: [location.hostname],
-        allowedHost: location.hostname,
-        sdk_type: "gm",
-        gd_game_key: "escape-road-3-az",
-        more_games_url: ""
-      },
-      gameInfo: {
-        allow_play: true,
-        block: false,
-        blocked: false,
-        locked: false,
-        domains: [],
-        hosts: [location.hostname],
-        allowedHost: location.hostname,
-        sdk_type: "gm",
-        gd_game_key: "escape-road-3-az",
-        title: "Escape Road 3"
+      gameInfoParam: unityGameInfoParam,
+      adParam: unityAdInfoParam,
+      data: unityGameInfoParam,
+      game_info: unityGameInfoParam,
+      ad_info: unityAdInfoParam,
+      config: unityGameInfoObject,
+      gameInfo: unityGameInfoObject,
+      result: {
+        success: true,
+        data: unityGameInfoParam,
+        adData: unityAdInfoParam
       }
     };
 
@@ -110,6 +162,8 @@
       localStorage.setItem("gmsdksigndomain", signedDomainToken);
       localStorage.setItem("gm_game_info", makeGamesdkResponseBody());
       localStorage.setItem("gameInfoResponse", makeGamesdkResponseBody());
+      localStorage.setItem("gm_game_info_param", unityGameInfoParam);
+      localStorage.setItem("gm_ad_info_param", unityAdInfoParam);
     } catch (error) {}
 
     function firebaseLogEvent() {}
@@ -150,8 +204,15 @@
       trackEventParams: function() {}
     };
 
-    window.GMSDK = window.GMSDK || {
-      SetSDKType: SetSDKType
+    window.GMSDK = window.GMSDK || {};
+    window.GMSDK.SetSDKType = window.GMSDK.SetSDKType || SetSDKType;
+    window.GMSDK.SetGameInfoParam = window.GMSDK.SetGameInfoParam || function() {
+      return unityGameInfoParam;
+    };
+
+    window.GMAdvertisementManager = window.GMAdvertisementManager || {};
+    window.GMAdvertisementManager.SetAdParam = window.GMAdvertisementManager.SetAdParam || function() {
+      return unityAdInfoParam;
     };
 
     window.GMAnalytics = window.GMAnalytics || {
@@ -364,6 +425,36 @@
       window.addEventListener("touchstart", activate, { passive: true });
     }
 
+    function feedUnitySdkParameters() {
+      const instance = window.unityInstance;
+      if (!instance || typeof instance.SendMessage !== "function") {
+        return false;
+      }
+
+      const calls = [
+        ["GMSDK", "SetGameInfoParam", unityGameInfoParam],
+        ["GMAdvertisementManager", "SetAdParam", unityAdInfoParam]
+      ];
+
+      let sent = false;
+      calls.forEach(function(entry) {
+        try {
+          instance.SendMessage(entry[0], entry[1], entry[2]);
+          sent = true;
+        } catch (error) {}
+      });
+      return sent;
+    }
+
+    function scheduleUnitySdkFeed() {
+      const delays = [0, 150, 400, 900, 1600, 2600, 4000];
+      delays.forEach(function(delay) {
+        setTimeout(function() {
+          feedUnitySdkParameters();
+        }, delay);
+      });
+    }
+
     async function bootGame() {
       const missing = await verifyFiles();
       if (missing.length) {
@@ -383,6 +474,7 @@
           loadingBar.style.display = "none";
           canvas.focus();
           installInteractionHandlers();
+          scheduleUnitySdkFeed();
         }).catch(function(message) {
           setFatalError(typeof message === "string" ? message : "Unity failed to start. Check the browser console for details.");
         });
