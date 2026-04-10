@@ -14,7 +14,7 @@
     <div id="unity-loading-bar">
       <div class="loading-backdrop"></div>
       <div class="loading-panel">
-        <img class="loading-thumb" src=".png" alt="Escape Road 3 thumbnail">
+        <img class="loading-thumb" src="thumb.png" alt="Escape Road 3 thumbnail">
         <div class="loading-copy">
           <div class="loading-title">Escape Road 3</div>
           <div class="loading-subtitle" id="loading-text">Loading...</div>
@@ -30,7 +30,7 @@
 
   <script>
     const signedDomainToken = "eyJzaWduZWQiOiJJaHQ2XC9qdTRUWk15dTljNUhNbWNmekM2QWFmdXFIbGlqOFNcL1ZNNGJxOFVERXZ2czBwc3gwZUZQNEdWSkVWNmVFU2FMaGV1UERNMnEwOVVhUFRLODFJbVpVYnBpTndMXC9wNENcL2R2RWRkanlQK1RyUFFqazNLOUxOM0ZNRDluN0hSXC9ZblAxRmJYTkxoOG0zY3ZLT1JjaWdyXC9Na1JJQnV4SndQaWlvTlFMTVVPbkIzUmZUUkV1czBXbThJK3l4WEdzWUttSVhrT1lGT2hMXC8xb29NNG1hYWswMHZCaFwvZ2J1T09DRDBmZE82K2k3WVFuQUpvQUlBVTNtVXZUc0g4bWN3XC9qUmtTc3E5a2hWdktWVStnem4rZndveVpKWDFWTE00alwvUzZWdVF5SGJoSWEzM0d6U2hjUDZYQXpUUTBIOWpsc2pzNU83aEx4alVkUlcrSDFsZW9RPT0iLCJhcCI6InllcyIsImhuIjoiZ2FtZWEuYXpnYW1lLmlvIiwiZG9tYWluIjoiYXpnYW1lLmlvIiwicyI6InllcyIsInN0eXBlIjoyfQ==";
-    const gamesdkUrlPattern = /https:\/\/api\.cdnwave\.com\/sdkdom\/gamesdk/i;
+    const gamesdkUrlPattern = /api\.cdnwave\.com\/sdkdom\/gamesdk/i;
 
     const unlockedGameInfoResponse = {
       success: true,
@@ -43,6 +43,7 @@
       allow_play: true,
       allow: true,
       block: false,
+      blocked: false,
       locked: false,
       hosted: true,
       game: "escape-road-3",
@@ -54,11 +55,38 @@
       domains: [],
       hosts: [location.hostname],
       allowedHost: location.hostname,
+      allowedHosts: [location.hostname],
       sitelockVersion: 2,
       allowLocalHost: true,
+      allowCollectionPI: false,
       version: "26040702",
       title: "Escape Road 3",
-      messageStr: "ok"
+      messageStr: "ok",
+      errorReason: "",
+      config: {
+        allow_play: true,
+        block: false,
+        blocked: false,
+        locked: false,
+        domains: [],
+        hosts: [location.hostname],
+        allowedHost: location.hostname,
+        sdk_type: "gm",
+        gd_game_key: "escape-road-3-az",
+        more_games_url: ""
+      },
+      gameInfo: {
+        allow_play: true,
+        block: false,
+        blocked: false,
+        locked: false,
+        domains: [],
+        hosts: [location.hostname],
+        allowedHost: location.hostname,
+        sdk_type: "gm",
+        gd_game_key: "escape-road-3-az",
+        title: "Escape Road 3"
+      }
     };
 
     function makeGamesdkResponseBody() {
@@ -69,8 +97,19 @@
       return typeof url === "string" && gamesdkUrlPattern.test(url);
     }
 
+    function createGamesdkResponse() {
+      return new Response(makeGamesdkResponseBody(), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+    }
+
     try {
       localStorage.setItem("gmsdksigndomain", signedDomainToken);
+      localStorage.setItem("gm_game_info", makeGamesdkResponseBody());
+      localStorage.setItem("gameInfoResponse", makeGamesdkResponseBody());
     } catch (error) {}
 
     function firebaseLogEvent() {}
@@ -97,6 +136,7 @@
     window.gmStartAds = window.gmStartAds || gmStartAds;
     window.SetSDKType = window.SetSDKType || SetSDKType;
     window.GMSOFT_SDKTYPE = "gm";
+    window.sdkType = "gm";
 
     window.GMGameSDK = window.GMGameSDK || {
       init: function() {
@@ -123,162 +163,76 @@
       window.fetch = function(resource, init) {
         const url = typeof resource === "string" ? resource : resource && resource.url;
         if (isGamesdkUrl(url)) {
-          return Promise.resolve(new Response(makeGamesdkResponseBody(), {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json"
-            }
-          }));
+          return Promise.resolve(createGamesdkResponse());
         }
-        return nativeFetch(resource, init);
+        return nativeFetch(resource, init).then(function(response) {
+          return response;
+        });
       };
     }
 
     (function() {
-      const NativeXMLHttpRequest = window.XMLHttpRequest;
-      if (!NativeXMLHttpRequest) {
-        return;
-      }
+      const nativeOpen = XMLHttpRequest.prototype.open;
+      const nativeSend = XMLHttpRequest.prototype.send;
+      const nativeSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+      const nativeGetResponseHeader = XMLHttpRequest.prototype.getResponseHeader;
+      const nativeGetAllResponseHeaders = XMLHttpRequest.prototype.getAllResponseHeaders;
 
-      function InterceptedXMLHttpRequest() {
-        this.xhr = new NativeXMLHttpRequest();
-        this.isGamesdk = false;
-        this.method = "GET";
-        this.url = "";
-        this.requestHeaders = {};
-        this.readyState = 0;
-        this.status = 0;
-        this.statusText = "";
-        this.responseText = "";
-        this.response = "";
-        this.responseType = "";
-        this.onreadystatechange = null;
-        this.onload = null;
-        this.onerror = null;
-        this.onabort = null;
-        this.onloadend = null;
-        this.listeners = {};
-      }
-
-      InterceptedXMLHttpRequest.prototype.open = function(method, url, async, user, password) {
-        this.method = method;
-        this.url = url;
-        this.isGamesdk = isGamesdkUrl(url);
-        if (!this.isGamesdk) {
-          this.xhr.responseType = this.responseType || "";
-          this.xhr.open(method, url, async !== false, user, password);
+      XMLHttpRequest.prototype.open = function(method, url) {
+        this.__codexGamesdkUrl = typeof url === "string" ? url : "";
+        this.__codexGamesdkIntercept = isGamesdkUrl(this.__codexGamesdkUrl);
+        if (!this.__codexGamesdkIntercept) {
+          return nativeOpen.apply(this, arguments);
         }
         this.readyState = 1;
-        this.trigger("readystatechange");
+        if (typeof this.onreadystatechange === "function") {
+          this.onreadystatechange();
+        }
       };
 
-      InterceptedXMLHttpRequest.prototype.setRequestHeader = function(name, value) {
-        if (this.isGamesdk) {
-          this.requestHeaders[name] = value;
+      XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
+        if (this.__codexGamesdkIntercept) {
           return;
         }
-        this.xhr.setRequestHeader(name, value);
+        return nativeSetRequestHeader.call(this, name, value);
       };
 
-      InterceptedXMLHttpRequest.prototype.addEventListener = function(type, listener) {
-        if (!this.listeners[type]) {
-          this.listeners[type] = [];
-        }
-        this.listeners[type].push(listener);
-      };
-
-      InterceptedXMLHttpRequest.prototype.removeEventListener = function(type, listener) {
-        if (!this.listeners[type]) {
-          return;
-        }
-        this.listeners[type] = this.listeners[type].filter(function(entry) {
-          return entry !== listener;
-        });
-      };
-
-      InterceptedXMLHttpRequest.prototype.trigger = function(type) {
-        const event = { target: this, currentTarget: this, type: type };
-        const handler = this["on" + type];
-        if (typeof handler === "function") {
-          handler.call(this, event);
-        }
-        (this.listeners[type] || []).forEach(function(listener) {
-          listener.call(this, event);
-        }, this);
-      };
-
-      InterceptedXMLHttpRequest.prototype.send = function(body) {
-        if (this.isGamesdk) {
-          const self = this;
-          const payload = makeGamesdkResponseBody();
-          setTimeout(function() {
-            self.readyState = 4;
-            self.status = 200;
-            self.statusText = "OK";
-            self.responseText = payload;
-            self.response = payload;
-            self.trigger("readystatechange");
-            self.trigger("load");
-            self.trigger("loadend");
-          }, 0);
-          return;
+      XMLHttpRequest.prototype.send = function() {
+        if (!this.__codexGamesdkIntercept) {
+          return nativeSend.apply(this, arguments);
         }
 
-        this.xhr.onreadystatechange = () => {
-          this.readyState = this.xhr.readyState;
-          this.status = this.xhr.status;
-          this.statusText = this.xhr.statusText;
-          this.response = this.xhr.response;
-          this.responseText = this.xhr.responseText;
-          this.trigger("readystatechange");
-        };
-        this.xhr.onload = () => {
-          this.status = this.xhr.status;
-          this.statusText = this.xhr.statusText;
-          this.response = this.xhr.response;
-          this.responseText = this.xhr.responseText;
-          this.trigger("load");
-        };
-        this.xhr.onerror = () => this.trigger("error");
-        this.xhr.onabort = () => this.trigger("abort");
-        this.xhr.onloadend = () => this.trigger("loadend");
-        this.xhr.send(body);
-      };
+        const payload = makeGamesdkResponseBody();
+        Object.defineProperty(this, "readyState", { configurable: true, value: 4 });
+        Object.defineProperty(this, "status", { configurable: true, value: 200 });
+        Object.defineProperty(this, "statusText", { configurable: true, value: "OK" });
+        Object.defineProperty(this, "responseText", { configurable: true, value: payload });
+        Object.defineProperty(this, "response", { configurable: true, value: payload });
 
-      InterceptedXMLHttpRequest.prototype.abort = function() {
-        if (this.isGamesdk) {
-          this.trigger("abort");
-          return;
+        if (typeof this.onreadystatechange === "function") {
+          this.onreadystatechange();
         }
-        this.xhr.abort();
-      };
-
-      InterceptedXMLHttpRequest.prototype.getAllResponseHeaders = function() {
-        if (this.isGamesdk) {
-          return "content-type: application/json\r\n";
+        if (typeof this.onload === "function") {
+          this.onload();
         }
-        return this.xhr.getAllResponseHeaders();
+        if (typeof this.onloadend === "function") {
+          this.onloadend();
+        }
       };
 
-      InterceptedXMLHttpRequest.prototype.getResponseHeader = function(name) {
-        if (this.isGamesdk) {
+      XMLHttpRequest.prototype.getResponseHeader = function(name) {
+        if (this.__codexGamesdkIntercept) {
           return name && name.toLowerCase() === "content-type" ? "application/json" : null;
         }
-        return this.xhr.getResponseHeader(name);
+        return nativeGetResponseHeader.call(this, name);
       };
 
-      Object.defineProperty(InterceptedXMLHttpRequest.prototype, "withCredentials", {
-        get: function() {
-          return this.isGamesdk ? false : this.xhr.withCredentials;
-        },
-        set: function(value) {
-          if (!this.isGamesdk) {
-            this.xhr.withCredentials = value;
-          }
+      XMLHttpRequest.prototype.getAllResponseHeaders = function() {
+        if (this.__codexGamesdkIntercept) {
+          return "content-type: application/json\r\n";
         }
-      });
-
-      window.XMLHttpRequest = InterceptedXMLHttpRequest;
+        return nativeGetAllResponseHeaders.call(this);
+      };
     })();
 
     const buildUrl = "Build";
